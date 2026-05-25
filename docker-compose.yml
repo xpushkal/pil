@@ -1,0 +1,87 @@
+# Local-first dev stack. `docker compose up` brings the whole thing up from a clean checkout.
+# Targets an M4 Pro / 24GB box; nothing here requires cloud infra.
+
+name: pil
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: pil-postgres
+    environment:
+      POSTGRES_USER: pil
+      POSTGRES_PASSWORD: pil
+      POSTGRES_DB: pil
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pil -d pil"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: pil-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    container_name: pil-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # UI
+      - "14250:14250"   # gRPC ingest (legacy)
+      - "4317"          # OTLP gRPC (internal — collector forwards here)
+      - "4318"          # OTLP HTTP (internal)
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.112.0
+    container_name: pil-otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"     # OTLP gRPC (exposed to the app)
+      - "4318:4318"     # OTLP HTTP
+      - "8889:8889"     # Prometheus exporter scrape endpoint
+    depends_on:
+      - jaeger
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pil-app
+    env_file:
+      - .env
+    environment:
+      # Compose overrides for in-network DNS
+      PIL_DATABASE_URL: postgresql+asyncpg://pil:pil@postgres:5432/pil
+      PIL_DATABASE_URL_SYNC: postgresql+psycopg://pil:pil@postgres:5432/pil
+      PIL_REDIS_URL: redis://redis:6379/0
+      PIL_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+volumes:
+  postgres-data:
+  redis-data:

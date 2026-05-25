@@ -1,0 +1,30 @@
+# Semantic cache configuration. Loaded at startup; per-org overrides live in DB.
+defaults:
+  # Cosine similarity threshold for treating a candidate as a cache hit.
+  similarity_threshold: 0.92
+  # TTL for cached entries in seconds. 0 disables caching (used by enterprise tier).
+  ttl_seconds: 86400
+  # Embedding model — loaded once at startup, shared across requests.
+  # Sprint 2's RAG retrieval reuses this same instance.
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  embedding_dim: 384
+
+per_org_overrides_supported:
+  - similarity_threshold
+  - ttl_seconds
+
+# Provider/model pairs we pre-create cache partitions for. Anything not in this
+# list lands in the default partition until the cache writer creates a
+# dedicated one (Phase 2 cache module handles that).
+prewarmed_partitions:
+  openai:
+    - gpt-4o
+    - gpt-4o-mini
+    - gpt-4-turbo
+  anthropic:
+    - claude-3-5-sonnet-20241022
+    - claude-3-5-haiku-20241022
+    - claude-3-opus-20240229
+  gemini:
+    - gemini-1.5-pro
+    - gemini-1.5-flash
