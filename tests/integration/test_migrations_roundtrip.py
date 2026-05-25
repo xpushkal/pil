@@ -77,6 +77,11 @@ def test_upgrade_then_downgrade_roundtrip() -> None:
             exts = {row[0] for row in conn.execute(text("SELECT extname FROM pg_extension"))}
             assert "vector" in exts
             assert "pgcrypto" in exts
+
+        # 0002 dropped the obsolete ``nonce`` column from request_payloads.
+        cols = {c["name"] for c in inspector.get_columns("request_payloads")}
+        assert "nonce" not in cols, "0002 should have dropped request_payloads.nonce"
+        assert {"prompt_ciphertext", "response_ciphertext"}.issubset(cols)
     finally:
         engine.dispose()
 

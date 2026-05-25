@@ -27,6 +27,9 @@ def _test_env() -> Iterator[None]:
     os.environ.setdefault("PIL_REDIS_URL", "redis://localhost:6379/15")
     os.environ.setdefault("PIL_OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
     os.environ.setdefault("PIL_MASTER_ENCRYPTION_KEY", "test-master-key-not-secret-32-bytes!!")
+    # Skip Presidio + sentence-transformers + httpx pool init for unit tests
+    # that don't actually exercise the pipeline. Integration tests unset this.
+    os.environ.setdefault("PIL_SKIP_HEAVY_INIT", "1")
     yield
 
 

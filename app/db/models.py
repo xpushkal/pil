@@ -179,10 +179,10 @@ class RequestPayload(Base):
         nullable=False,
         unique=True,
     )
-    # AES-256-GCM ciphertext + nonce + tag. Per-org key, wrapped on the org row.
+    # AES-256-GCM. Each ciphertext column stores ``nonce || ciphertext_with_tag``;
+    # nonces are random per-encryption to avoid reuse across the two payloads.
     prompt_ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     response_ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    nonce: Mapped[bytes] = mapped_column(LargeBinary(12), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )

@@ -1,11 +1,18 @@
 """FastAPI entrypoint for the PIL proxy.
 
-Sprint 1 wires the bones: settings, logging, tracing, metrics, health probes.
-The proxy/PII/cache pipeline lands in Phase 2 of this sprint.
+Sprint 1 Phase 2 wires the full request pipeline:
+
+    auth → rate limit → PII scrub → cache lookup → upstream forward
+         → PII restore → audit log → response with X-PIL-* headers
+
+Startup loads three things into process-wide singletons so they don't
+re-instantiate per request: the Presidio analyzer, the sentence-transformers
+embedding model, and the upstream httpx client.
 """
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
@@ -15,6 +22,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app import __version__
 from app.api.health import router as health_router
+from app.api.keys import router as keys_router
+from app.api.proxy import router as proxy_router
+from app.core.pipeline import init_pipeline, shutdown_pipeline
 from app.observability.logging import configure_logging, get_logger
 from app.observability.metrics import render_latest
 from app.observability.tracing import configure_tracing
@@ -43,9 +53,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_tracing(app)
     log = get_logger("pil.lifespan")
     log.info("pil.startup", version=__version__, env=get_settings().env)
+    # Heavy init is skipped in unit tests via PIL_SKIP_HEAVY_INIT=1.
+    if os.getenv("PIL_SKIP_HEAVY_INIT") != "1":
+        await init_pipeline()
     try:
         yield
     finally:
+        await shutdown_pipeline()
         await close_redis()
         log.info("pil.shutdown")
 
@@ -71,6 +85,8 @@ def create_app() -> FastAPI:
 
     app.add_middleware(RequestIdMiddleware)
     app.include_router(health_router)
+    app.include_router(keys_router)
+    app.include_router(proxy_router)
 
     @app.get("/metrics", include_in_schema=False)
     async def metrics() -> Response:
