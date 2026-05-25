@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+wheels/
+
+# Virtualenv / uv
+.venv/
+venv/
+env/
+.python-version
+
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Logs
+*.log
+logs/
+
+# Model cache (HF/sentence-transformers download dir during local dev)
+.hf_cache/
+.st_cache/
+models/
+!app/**/models/
+
+# Alembic local
+alembic_local.ini
+
+# Build artifacts
+*.whl

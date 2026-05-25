@@ -1,0 +1,161 @@
+[project]
+name = "pil"
+version = "0.1.0-sprint1"
+description = "PIL — privacy-preserving LLM proxy. Sprint 1 foundation."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary" }
+authors = [{ name = "PIL Team" }]
+
+dependencies = [
+    # web
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "httpx[http2]>=0.27.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "python-multipart>=0.0.12",
+    "orjson>=3.10.7",
+
+    # db
+    "sqlalchemy[asyncio]>=2.0.35",
+    "asyncpg>=0.29.0",
+    "psycopg[binary]>=3.2.0",
+    "alembic>=1.13.0",
+    "pgvector>=0.3.0",
+
+    # cache / queue
+    "redis[hiredis]>=5.1.0",
+
+    # auth
+    "argon2-cffi>=23.1.0",
+
+    # observability
+    "structlog>=24.4.0",
+    "prometheus-client>=0.21.0",
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-sdk>=1.27.0",
+    "opentelemetry-exporter-otlp>=1.27.0",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
+    "opentelemetry-instrumentation-httpx>=0.48b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.48b0",
+    "opentelemetry-instrumentation-redis>=0.48b0",
+    "opentelemetry-semantic-conventions>=0.48b0",
+
+    # pii / ml — wired in Phase 2 but installed now so the image bakes the models
+    "presidio-analyzer>=2.2.355",
+    "presidio-anonymizer>=2.2.355",
+    "spacy>=3.7.5",
+    "sentence-transformers>=3.2.0",
+    "torch>=2.4.0",
+
+    # tokenization
+    "tiktoken>=0.8.0",
+    "anthropic>=0.39.0",
+
+    # misc
+    "pyyaml>=6.0.2",
+    "cryptography>=43.0.0",
+    "tenacity>=9.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "pytest-mock>=3.14.0",
+    "httpx>=0.27.0",
+    "respx>=0.21.1",
+    "ruff>=0.7.0",
+    "mypy>=1.13.0",
+    "types-pyyaml>=6.0.12",
+    "pre-commit>=4.0.0",
+    "freezegun>=1.5.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+# ---------------------------------------------------------------------------
+# ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["app/db/migrations/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",        # pycodestyle / pyflakes
+    "I",                  # isort
+    "UP",                 # pyupgrade
+    "B",                  # bugbear
+    "C4",                 # comprehensions
+    "SIM",                # simplify
+    "RUF",                # ruff-specific
+    "ASYNC",
+    "S",                  # bandit-ish
+]
+ignore = [
+    "S101",               # asserts are fine in tests
+    "B008",               # FastAPI's Depends() in default args
+    "SIM108",             # ternary not always clearer
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S", "B017"]
+"app/db/migrations/**/*.py" = ["E501", "I", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+strict = false                 # global; strict applied to app/core/ in CI
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+show_error_codes = true
+exclude = "app/db/migrations/versions/"
+
+[[tool.mypy.overrides]]
+module = "app.core.*"
+strict = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "integration: requires real Postgres + Redis",
+    "slow: takes >1s to run",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:presidio_analyzer.*",
+    "ignore::DeprecationWarning:spacy.*",
+    "ignore::UserWarning:torch.*",
+]
+
+[tool.coverage.run]
+source = ["app/core"]
+branch = true
+omit = ["app/db/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
