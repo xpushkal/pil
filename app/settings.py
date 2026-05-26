@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     pii_mode: Literal["reversible", "one_way"] = "reversible"
     pii_map_ttl_seconds: int = 300
     pii_fail_closed: bool = True
+    # Presidio's spaCy model. Production image bakes ``en_core_web_lg``; CI +
+    # local tests can override with ``en_core_web_sm`` for speed.
+    spacy_model: str = "en_core_web_lg"
 
     # ----- cache (wired in Phase 2) ---------------------------------------
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"

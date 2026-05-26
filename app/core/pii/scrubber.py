@@ -43,10 +43,12 @@ from presidio_analyzer import (
     RecognizerRegistry,
     RecognizerResult,
 )
+from presidio_analyzer.nlp_engine import NlpEngineProvider
 
 from app.core.pii import recognizers as recognizers_pkg
 from app.observability.logging import get_logger
 from app.observability.metrics import pii_detections_total
+from app.settings import get_settings
 
 log = get_logger("pii.scrubber")
 
@@ -181,7 +183,19 @@ class PIIScrubber:
             for rec in _discover_plugin_recognizers(extra_dir):
                 registry.add_recognizer(rec)
 
-        self._analyzer = AnalyzerEngine(registry=registry, supported_languages=["en"])
+        # Build an NLP engine using whatever spaCy model is configured (lg in
+        # prod, sm in CI/tests). Presidio constructs its own default engine if
+        # we don't pass one, but that default unconditionally loads
+        # ``en_core_web_lg`` which is heavy.
+        nlp_engine = NlpEngineProvider(
+            nlp_configuration={
+                "nlp_engine_name": "spacy",
+                "models": [{"lang_code": "en", "model_name": get_settings().spacy_model}],
+            }
+        ).create_engine()
+        self._analyzer = AnalyzerEngine(
+            registry=registry, nlp_engine=nlp_engine, supported_languages=["en"]
+        )
         self._allowed_entities: tuple[str, ...] = (
             *ENABLED_PRESIDIO_ENTITIES,
             *self._custom_entity_names(registry),
