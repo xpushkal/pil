@@ -94,6 +94,12 @@ jobs:
           version: ${{ env.UV_VERSION }}
       - run: uv python install ${{ env.PYTHON_VERSION }}
       - run: uv sync --extra dev
+      - name: download spaCy + sentence-transformers models
+        # CI uses ``en_core_web_sm`` for speed (~13MB vs lg's ~750MB). The
+        # production Docker image bakes ``en_core_web_lg``.
+        run: |
+          uv run python -m spacy download en_core_web_sm
+          uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
       - name: pytest integration
         env:
           PIL_ENV: ci
@@ -101,6 +107,8 @@ jobs:
           PIL_DATABASE_URL_SYNC: postgresql+psycopg://pil:pil@localhost:5432/pil_test
           PIL_REDIS_URL: redis://localhost:6379/15
           PIL_MASTER_ENCRYPTION_KEY: ci-master-key-not-secret-32-bytes!!
+          PIL_SPACY_MODEL: en_core_web_sm
+          PIL_EMBEDDING_DEVICE: cpu
         run: uv run pytest tests/integration -ra -m integration
 
   docker:
